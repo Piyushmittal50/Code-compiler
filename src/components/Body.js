@@ -1,8 +1,6 @@
 import React, { useState } from "react";
-import { LOADING_WHEEL } from "../utils/constant";
 import { Editor } from "@monaco-editor/react";
-import NavBar from "./NavBar";
-import axios from "axios";
+import NavBar from "./NavBar.js";
 import { TailSpin } from "react-loader-spinner";
 
 const Body = () => {
@@ -38,22 +36,62 @@ const Body = () => {
       return;
     }
     // Post request to compile endpoint
-    axios
-      .post(`http://localhost:8000/compile`, {
-        code: userCode,
-        language: userLang,
-        input: userInput,
-      })
-      .then((res) => {
-        setUserOutput(res.data.output);
-      })
-      .then(() => {
-        setLoading(false);
-      });
+     fetch(
+       "https://judge0-ce.p.rapidapi.com/submissions?base64_encoded=true&fields=*",
+       {
+         method: "POST",
+         headers: {
+           "Content-Type": "application/json",
+           "X-RapidAPI-Key":
+             "ca5d37091fmsh047b3efcf0b8d22p1cac2fjsn1fb59f7f5603",
+           "X-RapidAPI-Host": "judge0-ce.p.rapidapi.com",
+         },
+         body: JSON.stringify({
+           code: userCode,
+           language: userLang,
+           input: userInput,
+         }),
+       }
+     )
+       .then((response) => response.json())
+       .then((data) => {
+         // If POST request succeeds, fetch the result using the token
+         const submissionToken = data.token;
+         return fetch(
+           `https://judge0-ce.p.rapidapi.com/submissions/${submissionToken}?base64_encoded=true&fields=*`);
+       })
+       .then((response) => response.json())
+       .then((data) => {
+         setUserOutput(data.output);
+       })
+       .catch((error) => {
+         console.error("Error:", error);
+       })
+       .finally(() => {
+         setLoading(false);
+       });
   }
   // Function to clear the output screen
   function clearOutput() {
     setUserOutput("");
+  }
+
+  // Function to get language ID based on selected language
+  function getLanguageId(language) {
+    switch (language) {
+      case "python":
+        return 92;
+      case "c":
+        return 50;
+      case "cpp":
+        return 54;
+      case "java":
+        return 91;
+      case "javascript":
+        return 93;
+      default:
+        return 0;
+    }
   }
 
   return (
