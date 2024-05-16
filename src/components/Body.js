@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Editor } from "@monaco-editor/react";
 import NavBar from "./NavBar.js";
 import { TailSpin } from "react-loader-spinner";
@@ -8,7 +8,7 @@ const Body = () => {
   const [userCode, setUserCode] = useState(``);
 
   //editor default language
-  const [userLang, setUserLang] = useState("python");
+  const [userLang, setUserLang] = useState("cpp");
 
   //editor default theme
   const [userTheme, setUserTheme] = useState("vs-dark");
@@ -26,73 +26,94 @@ const Body = () => {
   // while fetching data
   const [loading, setLoading] = useState(false);
 
+   let language_id = 0;
+
+   if (userLang === "python") {
+     language_id = 92;
+   } else if (userLang === "c") {
+     language_id = 50;
+   } else if (userLang === "cpp") {
+     language_id = 54;
+   } else if (userLang === "java") {
+     language_id = 91;
+   } else if (userLang === "javascript") {
+     language_id = 93;
+   }
+
   const options = {
     fontSize: fontSize,
   };
-  function compile() {
-    setLoading(true);
-    if (userCode === ``) {
-      setLoading(false);
-      return;
-    }
-    // Post request to compile endpoint
-     fetch(
-       "https://judge0-ce.p.rapidapi.com/submissions?base64_encoded=true&fields=*",
-       {
-         method: "POST",
-         headers: {
-           "Content-Type": "application/json",
-           "X-RapidAPI-Key":
-             "ca5d37091fmsh047b3efcf0b8d22p1cac2fjsn1fb59f7f5603",
-           "X-RapidAPI-Host": "judge0-ce.p.rapidapi.com",
-         },
-         body: JSON.stringify({
-           code: userCode,
-           language: userLang,
-           input: userInput,
-         }),
-       }
-     )
-       .then((response) => response.json())
-       .then((data) => {
-         // If POST request succeeds, fetch the result using the token
-         const submissionToken = data.token;
-         return fetch(
-           `https://judge0-ce.p.rapidapi.com/submissions/${submissionToken}?base64_encoded=true&fields=*`);
-       })
-       .then((response) => response.json())
-       .then((data) => {
-         setUserOutput(data.output);
-       })
-       .catch((error) => {
-         console.error("Error:", error);
-       })
-       .finally(() => {
-         setLoading(false);
-       });
+async function compile() {
+  setLoading(true);
+  if (userCode === ``) {
+    setLoading(false);
+    return;
   }
+
+  try {
+    // Post request to compile endpoint
+    const compileResponse = await fetch(
+      "https://judge0-ce.p.rapidapi.com/submissions?&fields=*",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-RapidAPI-Key":
+            "ba15647143msh8241d9ac3e9752fp1b2534jsndf38df679246",
+          "X-RapidAPI-Host": "judge0-ce.p.rapidapi.com",
+        },
+        body: JSON.stringify({
+          source_code: userCode,
+          language_id: language_id,
+          stdin: userInput,
+        }),
+      }
+    );
+
+    if (!compileResponse.ok) {
+      throw new Error("Compilation failed");
+    }
+
+    const compileData = await compileResponse.json();
+    const token = compileData.token;
+    console.log(token);
+    // Get request to retrieve result using the token
+    const getResultResponse = await fetch(
+      `https://judge0-ce.p.rapidapi.com/submissions/${token}?fields=*`,
+      {
+        method: "GET",
+        headers: {
+          "X-RapidAPI-Key":
+            "ba15647143msh8241d9ac3e9752fp1b2534jsndf38df679246",
+          "X-RapidAPI-Host": "judge0-ce.p.rapidapi.com",
+        },
+      }
+    );
+
+    if (!getResultResponse.ok) {
+      throw new Error("Failed to fetch result");
+    }
+    //console.log(getResultResponse);
+    const resultData = await getResultResponse.json();
+    console.log(resultData);
+    setUserOutput(resultData.stdout);
+    console.log(userOutput);
+  } catch (error) {
+    console.error("Error:", error);
+   } finally {
+    setLoading(false);
+  }
+
+}
+
   // Function to clear the output screen
   function clearOutput() {
     setUserOutput("");
   }
 
-  // Function to get language ID based on selected language
-  function getLanguageId(language) {
-    switch (language) {
-      case "python":
-        return 92;
-      case "c":
-        return 50;
-      case "cpp":
-        return 54;
-      case "java":
-        return 91;
-      case "javascript":
-        return 93;
-      default:
-        return 0;
-    }
-  }
+  useEffect(() => {
+     console.log(userOutput);
+   }, [userOutput]);
 
   return (
     <div className="max-h-full w-full bg-green-500">
@@ -152,7 +173,7 @@ const Body = () => {
                 />
               </div>
             ) : (
-              <div className="overflow-auto">
+                <div className="overflow-auto">
                 <pre className="text-white">{userOutput}</pre>
                 <button
                   onClick={() => {
@@ -172,3 +193,5 @@ const Body = () => {
 };
 
 export default Body;
+
+
